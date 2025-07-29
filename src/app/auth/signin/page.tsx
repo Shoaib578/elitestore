@@ -1,12 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function SignInPage() {
+ function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -162,14 +162,7 @@ export default function SignInPage() {
             </p>
           </div>
 
-          {/* Demo Account */}
-          <div className="mt-6 pt-6 border-t border-white/20">
-            <p className="text-center text-sm text-gray-400 mb-3">Demo Account</p>
-            <div className="text-center space-y-1">
-              <p className="text-sm text-gray-300">Email: demo@elitestore.com</p>
-              <p className="text-sm text-gray-300">Password: demo123</p>
-            </div>
-          </div>
+        
         </motion.div>
 
         {/* Back to home */}
@@ -187,3 +180,13 @@ export default function SignInPage() {
     </div>
   );
 }
+
+const SignInPage = ()=>{
+    return(
+        <Suspense>
+            <SignIn />
+        </Suspense>
+    )
+}
+
+export default SignInPage
