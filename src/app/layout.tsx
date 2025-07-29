@@ -24,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body suppressHydrationWarning={true} className={inter.className}>
+      <body suppressHydrationWarning={true}  className={inter.className}>
         <AuthProvider>
           <CartProvider>
             <div className="min-h-screen flex flex-col">
