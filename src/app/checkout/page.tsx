@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { CreditCard, MapPin, User, Mail, Phone, Lock } from 'lucide-react';
+import { MapPin, User, Mail, Phone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -22,20 +22,12 @@ interface ShippingInfo {
   country: string;
 }
 
-interface PaymentInfo {
-  cardNumber: string;
-  expiryDate: string;
-  cvv: string;
-  cardholderName: string;
-}
-
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo>({
     firstName: '',
     lastName: '',
@@ -48,13 +40,6 @@ export default function CheckoutPage() {
     country: 'United States'
   });
 
-  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardholderName: ''
-  });
-
   const shippingCost = totalPrice > 100 ? 0 : 9.99;
   const tax = totalPrice * 0.08;
   const finalTotal = totalPrice + shippingCost + tax;
@@ -64,56 +49,41 @@ export default function CheckoutPage() {
     setCurrentStep(2);
   };
 
-  const handlePaymentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handlePlaceOrder = async () => {
+    if (!user) {
+      toast.error('You must be logged in to place an order.');
+      return;
+    }
 
+    setLoading(true);
     try {
-      // Create order in Firestore
       const orderData = {
-        userId: user?.uid,
+        userId: user.uid,
         items: items,
         shippingInfo,
-        paymentInfo: {
-          ...paymentInfo,
-          cardNumber: '****' + paymentInfo.cardNumber.slice(-4), // Mask card number
-          cvv: '***' // Mask CVV
-        },
+        paymentMethod: 'Cash on Delivery',
         subtotal: totalPrice,
         shipping: shippingCost,
         tax: tax,
         total: finalTotal,
         status: 'pending',
         createdAt: new Date(),
-        orderNumber: `ORD-${Date.now()}`
+        orderNumber: `COD-${Date.now()}`
       };
 
       const docRef = await addDoc(collection(db, 'orders'), orderData);
-      
-      // Clear cart and redirect
       clearCart();
-      toast.success('Order placed successfully!');
+      toast.success('Order placed successfully! 🎉');
       router.push(`/orders/${docRef.id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error placing order:', error);
-      toast.error('Failed to place order. Please try again.');
+      toast.error(
+        error.message.includes('permission')
+          ? 'Permission denied. Check Firestore rules.'
+          : 'Failed to place order. Please try again.'
+      );
     } finally {
       setLoading(false);
-    }
-  };
-
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = matches && matches[0] || '';
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-    if (parts.length) {
-      return parts.join(' ');
-    } else {
-      return v;
     }
   };
 
@@ -133,7 +103,6 @@ export default function CheckoutPage() {
           className="mb-8"
         >
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Checkout</h1>
-          
           {/* Progress Steps */}
           <div className="flex items-center space-x-8">
             <div className={`flex items-center space-x-2 ${currentStep >= 1 ? 'text-purple-600' : 'text-gray-400'}`}>
@@ -147,7 +116,7 @@ export default function CheckoutPage() {
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}>
                 2
               </div>
-              <span className="font-medium">Payment</span>
+              <span className="font-medium">Review</span>
             </div>
           </div>
         </motion.div>
@@ -166,7 +135,6 @@ export default function CheckoutPage() {
                   <MapPin className="h-6 w-6 text-purple-600" />
                   <span>Shipping Information</span>
                 </h2>
-
                 <form onSubmit={handleShippingSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -185,7 +153,6 @@ export default function CheckoutPage() {
                         />
                       </div>
                     </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Last Name
@@ -203,7 +170,6 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -221,7 +187,6 @@ export default function CheckoutPage() {
                         />
                       </div>
                     </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Phone
@@ -239,7 +204,6 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Address
@@ -253,7 +217,6 @@ export default function CheckoutPage() {
                       placeholder="Street address"
                     />
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -268,7 +231,6 @@ export default function CheckoutPage() {
                         placeholder="City"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         State
@@ -282,7 +244,6 @@ export default function CheckoutPage() {
                         placeholder="State"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         ZIP Code
@@ -297,14 +258,13 @@ export default function CheckoutPage() {
                       />
                     </div>
                   </div>
-
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
                     className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-300"
                   >
-                    Continue to Payment
+                    Continue to Review
                   </motion.button>
                 </form>
               </motion.div>
@@ -319,8 +279,7 @@ export default function CheckoutPage() {
               >
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                    <CreditCard className="h-6 w-6 text-purple-600" />
-                    <span>Payment Information</span>
+                    <span>Review & Place Order</span>
                   </h2>
                   <button
                     onClick={() => setCurrentStep(1)}
@@ -330,94 +289,62 @@ export default function CheckoutPage() {
                   </button>
                 </div>
 
-                <form onSubmit={handlePaymentSubmit} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cardholder Name
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="text"
-                        required
-                        value={paymentInfo.cardholderName}
-                        onChange={(e) => setPaymentInfo({...paymentInfo, cardholderName: e.target.value})}
-                        className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Name on card"
-                      />
+                {/* Cash on Delivery Info */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 text-green-600 mt-0.5">
+                      🛵
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Card Number
-                    </label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="text"
-                        required
-                        value={paymentInfo.cardNumber}
-                        onChange={(e) => setPaymentInfo({...paymentInfo, cardNumber: formatCardNumber(e.target.value)})}
-                        className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="1234 5678 9012 3456"
-                        maxLength={19}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Expiry Date
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={paymentInfo.expiryDate}
-                        onChange={(e) => setPaymentInfo({...paymentInfo, expiryDate: e.target.value})}
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="MM/YY"
-                        maxLength={5}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CVV
-                      </label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <input
-                          type="text"
-                          required
-                          value={paymentInfo.cvv}
-                          onChange={(e) => setPaymentInfo({...paymentInfo, cvv: e.target.value})}
-                          className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                          placeholder="123"
-                          maxLength={4}
-                        />
-                      </div>
+                      <h3 className="font-semibold text-green-800">Cash on Delivery</h3>
+                      <p className="text-green-700 text-sm mt-1">
+                        Pay in cash when your order is delivered. No card required.
+                      </p>
                     </div>
                   </div>
+                </div>
 
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        <span>Processing...</span>
-                      </div>
-                    ) : (
-                      `Place Order - $${finalTotal.toFixed(2)}`
-                    )}
-                  </motion.button>
-                </form>
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-semibold">${totalPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Shipping</span>
+                    <span className="font-semibold">
+                      {shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Tax</span>
+                    <span className="font-semibold">${tax.toFixed(2)}</span>
+                  </div>
+                  <hr />
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total</span>
+                    <span className="text-purple-600">${finalTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handlePlaceOrder}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-60 flex items-center justify-center space-x-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
+                      <span>Placing Order...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📦</span>
+                      <span>Place Cash on Delivery Order</span>
+                    </>
+                  )}
+                </motion.button>
               </motion.div>
             )}
           </div>
@@ -431,7 +358,6 @@ export default function CheckoutPage() {
               className="bg-white rounded-lg shadow-lg p-6 sticky top-24"
             >
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
-              
               <div className="space-y-4 mb-6">
                 {items.map((item) => (
                   <div key={item.id} className="flex items-center space-x-3">
@@ -444,7 +370,6 @@ export default function CheckoutPage() {
                   </div>
                 ))}
               </div>
-
               <div className="space-y-3 pt-6 border-t">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
@@ -466,14 +391,7 @@ export default function CheckoutPage() {
                   <span className="text-purple-600">${finalTotal.toFixed(2)}</span>
                 </div>
               </div>
-
-              {/* Security Badge */}
-              <div className="mt-6 pt-6 border-t">
-                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-                  <Lock className="h-4 w-4" />
-                  <span>256-bit SSL encrypted checkout</span>
-                </div>
-              </div>
+            
             </motion.div>
           </div>
         </div>
