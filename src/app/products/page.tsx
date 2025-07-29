@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import ProductCard from '@/components/ProductCard';
 import { Product } from '@/contexts/CartContext';
@@ -74,7 +74,7 @@ const sortOptions = [
   { value: 'price-high', label: 'Price: High to Low' },
 ];
 
-export default function ProductsPage() {
+function Products() {
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -302,3 +302,13 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+const ProductsPage = ()=>{
+    return(
+        <Suspense>
+            <Products />
+        </Suspense>
+    )
+}
+
+export default ProductsPage
